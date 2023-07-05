@@ -236,16 +236,22 @@ public class MOEADD_main {
 		// Crossover operator
 		String crossover_operator = args[2];
 
+		crossover = null;
 		if (crossover_operator.equals("de")) { //DE
 			parameters = new HashMap();
 			parameters.put("CR", 0.5);
 			parameters.put("F", 0.5);
 			crossover = CrossoverFactory.getCrossoverOperator("DifferentialEvolutionCrossover", parameters);
-		} else { //SBX
+		}
+		else if (crossover_operator.equals("sbx")) { //SBX
 			parameters = new HashMap();
 		    parameters.put("probability", 1.0) ;
 		    parameters.put("distributionIndex", 20.0) ;
 		    crossover = CrossoverFactory.getCrossoverOperator("SBXCrossover", parameters);
+		}
+		else {
+			System.out.println("Crossover operator " + crossover_operator + " not supported :(");
+			System.exit(0);
 		}
 
 
@@ -284,7 +290,7 @@ public class MOEADD_main {
 			// Result messages
 			logger_.info("Total execution time: " + estimatedTime + "ms");
 			logger_.info("Variables values have been writen to file VAR");
-//			population.printVariablesToFile(str4);
+			population.printVariablesToFile(str4);
 			logger_.info("Objectives values have been writen to file FUN");
 			population.printObjectivesToFile(curDir + "/" + problem.getName()
 					+ "M" + problem.getNumberOfObjectives() + "/" + str2);

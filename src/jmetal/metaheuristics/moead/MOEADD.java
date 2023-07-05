@@ -40,6 +40,7 @@ package jmetal.metaheuristics.moead;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -170,33 +171,53 @@ public class MOEADD extends Algorithm {
 				else
 					type = 2; // whole population
 
-				Solution[] parents   = new Solution[2];
-				Solution[] offSpring = new Solution[2];
-				parents = matingSelection(cid, type);
 
-				// SBX crossover
-				offSpring = (Solution[]) crossover_.execute(parents);
 
-				// polynomial mutation
-				mutation_.execute(offSpring[0]);
-				mutation_.execute(offSpring[1]);
+				// Crossover
+				
+				ArrayList<Solution> offspring = new ArrayList<>();
+				
+				//DE
+				if (crossover_ instanceof jmetal.operators.crossover.DifferentialEvolutionCrossover){
+					
+					Solution[] parents = new Solution[2];
+					parents = matingSelection(cid, type);
+															
+					Solution result = (Solution) crossover_.execute(new Object[] { population_.get(cid), new Solution[]{parents[0], parents[1], population_.get(cid)}});
+					offspring.add(result);
 
-				// evaluation
-				problem_.evaluate(offSpring[0]);
-				problem_.evaluate(offSpring[1]);
-				evaluations_ += 2;
+				}
+				
+				//SBX
+				else if (crossover_ instanceof jmetal.operators.crossover.SBXCrossover){
+					
+					Solution[] parents = new Solution[2];
+					parents = matingSelection(cid, type);
+					
+					Solution[] result = (Solution[]) crossover_.execute(parents);
+					offspring.addAll(Arrays.asList(result));
+					
+				}
 
-				// update ideal points
-				updateReference(offSpring[0], zp_);
-				updateReference(offSpring[1], zp_);
+				//iterate over offspring
+				for (Solution child : offspring){
+					// polynomial mutation
+					mutation_.execute(child);
 
-				// update nadir points
-				updateNadirPoint(offSpring[0], nzp_);
-				updateNadirPoint(offSpring[1], nzp_);
+					// evaluation
+					problem_.evaluate(child);
+					evaluations_ += 1;
 
-				updateArchive(offSpring[0]);
-				updateArchive(offSpring[1]);
-			} // for			
+					// update ideal points
+					updateReference(child, zp_);
+
+					// update nadir points
+					updateNadirPoint(child, nzp_);
+
+					updateArchive(child);
+				}
+				
+			} // for (i)
 			++gen;
 			System.out.println(gen);
 		} while (evaluations_ < maxEvaluations);
