@@ -249,6 +249,11 @@ public class MOEADD_main {
 		    parameters.put("distributionIndex", 20.0) ;
 		    crossover = CrossoverFactory.getCrossoverOperator("SBXCrossover", parameters);
 		}
+		else if (crossover_operator.equals("umda")) { //SBX
+			parameters = new HashMap();
+		    //parameters.put("probability", 1.0);
+		    crossover = CrossoverFactory.getCrossoverOperator("UMDAc", parameters);
+		}
 		else {
 			System.out.println("Crossover operator " + crossover_operator + " not supported :(");
 			System.exit(0);

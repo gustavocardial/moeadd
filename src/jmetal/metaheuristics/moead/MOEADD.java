@@ -41,9 +41,11 @@ package jmetal.metaheuristics.moead;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
@@ -172,7 +174,6 @@ public class MOEADD extends Algorithm {
 					type = 2; // whole population
 
 
-
 				// Crossover
 				
 				ArrayList<Solution> offspring = new ArrayList<>();
@@ -181,8 +182,9 @@ public class MOEADD extends Algorithm {
 				if (crossover_ instanceof jmetal.operators.crossover.DifferentialEvolutionCrossover){
 					
 					Solution[] parents = new Solution[2];
-					parents = matingSelection(cid, type);
-															
+					//parents = matingSelection(cid, type);
+					parents = matingSelection(cid, type, 2);
+					
 					Solution result = (Solution) crossover_.execute(new Object[] { population_.get(cid), new Solution[]{parents[0], parents[1], population_.get(cid)}});
 					offspring.add(result);
 
@@ -192,11 +194,22 @@ public class MOEADD extends Algorithm {
 				else if (crossover_ instanceof jmetal.operators.crossover.SBXCrossover){
 					
 					Solution[] parents = new Solution[2];
-					parents = matingSelection(cid, type);
+					//parents = matingSelection(cid, type);
+					parents = matingSelection(cid, type, 2);
 					
 					Solution[] result = (Solution[]) crossover_.execute(parents);
 					offspring.addAll(Arrays.asList(result));
 					
+				}
+				
+				//UMDAc
+				else if  (crossover_ instanceof jmetal.operators.crossover.UMDAc){
+					int k = 30; //number of parents
+					Solution[] parents = new Solution[k];
+					parents = matingSelection(cid, type, k);
+					
+					Solution[] result = (Solution[]) crossover_.execute(parents);
+					offspring.addAll(Arrays.asList(result));
 				}
 
 				//iterate over offspring
@@ -364,6 +377,70 @@ public class MOEADD extends Algorithm {
 	} // initNadirPoint
 
 	/**
+	 * Select k parents for reproduction
+	 * 
+	 * @param cid (current id)
+	 * @param type (neighborhood or population)
+	 * @param k (total of parents to be returned)
+	 *
+	 * @return parents
+	 */
+	public Solution[] matingSelection(int cid, int type, int k) {
+
+		Solution[] parents = new Solution[k];
+
+		int nLen = neighborhood_[cid].length;	
+		int matingPoolSize, randomValue;
+
+		List<Integer> matingPool = new ArrayList<Integer>();
+		
+		//use neighborhood to form matingPool
+		if (type == 1) {
+
+			if (k <= nLen) //add k random neighbors to matingPool
+				while (matingPool.size() != k){
+					randomValue = PseudoRandom.randInt(0, nLen - 1);
+					int value = neighborhood_[cid][randomValue];
+					if (!matingPool.contains(value))
+						matingPool.add(value);
+				}
+			
+			else //or add all neighbors to matingPool
+				for (int i = 0; i < nLen; i++)
+					matingPool.add(neighborhood_[cid][i]);
+			
+			//add to matingPool others that are on the same subregions as current matingPool
+			matingPoolSize = matingPool.size();
+			for (int i = 0; i < matingPoolSize; i++){
+				int idx = matingPool.get(i);
+				for (int j = 0; j < populationSize_; j++)
+					if (idx != j && subregionIdx_[idx][j] == 1)
+						matingPool.add(j);
+			}
+			
+			//pool not large enough? clear to use whole population
+			if (matingPool.size() < k){
+				matingPool.clear();
+				type = 2;
+			}
+		}
+		
+		//use whole population to form matingPool
+		if (type == 2)
+			for (int i = 0; i < populationSize_; i++)
+				matingPool.add(i);
+		
+		//choose parents from mating pool
+		for (int i = 0; i < k; i++){
+			randomValue = PseudoRandom.randInt(0, matingPool.size() - 1);
+			parents[i] = population_.get(matingPool.get(randomValue));
+			matingPool.remove(randomValue);
+		}
+		
+		return parents;
+	}
+	
+	/**
 	 * Select two parents for reproduction
 	 * 
 	 * @param cid
@@ -380,6 +457,8 @@ public class MOEADD extends Algorithm {
 		
 		Vector<Integer> activeList = new Vector<Integer>();
 		if (type == 1) {
+			
+			//select everyone from cid's neighbours' subregions
 			for (int i = 0; i < nLength; i++) {
 				int idx = neighborhood_[cid][i];
 				for (int j = 0; j < populationSize_; j++) {
@@ -389,6 +468,8 @@ public class MOEADD extends Algorithm {
 					}
 				}
 			}
+			
+			//if less than we need to select, select from whole pop
 			if (activeList.size() < 2) {
 				activeList.clear();
 				for (int i = 0; i < populationSize_; i++) {
@@ -398,8 +479,9 @@ public class MOEADD extends Algorithm {
 							break;
 						}
 					}
-				}
+				} //after above, activeList now contains whole pop
 			}
+			
 			int activeSize = activeList.size();
 			rnd1 = PseudoRandom.randInt(0, activeSize - 1);
 			do {
@@ -409,6 +491,9 @@ public class MOEADD extends Algorithm {
 			Vector<Integer> list2 = new Vector<Integer>();
 			int id1 = activeList.get(rnd1);
 			int id2 = activeList.get(rnd2);
+			
+			//choose 2 (can be 1) of those selected subregions
+			//select everyone from them
 			for (int i = 0; i < populationSize_; i++) {
 				if (subregionIdx_[id1][i] == 1)
 					list1.addElement(i);
@@ -417,6 +502,8 @@ public class MOEADD extends Algorithm {
 			}
 			int p1 = PseudoRandom.randInt(0, list1.size() - 1);
 			int p2 = PseudoRandom.randInt(0, list2.size() - 1);
+
+			//select 1 from each subregion
 			parents[0] = population_.get(list1.get(p1));
 			parents[1] = population_.get(list2.get(p2));
 		} else {
@@ -427,7 +514,7 @@ public class MOEADD extends Algorithm {
 						break;
 					}
 				}
-			}
+			} //after above, activeList now contains whole pop
 			int activeSize = activeList.size();
 			rnd1 = PseudoRandom.randInt(0, activeSize - 1);
 			do {
